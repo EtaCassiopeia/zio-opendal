@@ -1,0 +1,112 @@
+services:
+  # LocalStack for AWS service emulation
+  localstack:
+    container_name: zio-opendal-localstack
+    image: localstack/localstack:3.9.0
+    platform: linux/amd64  # Ensure compatibility across platforms
+    ports:
+      - "4566:4566"  # LocalStack main port
+      - "4510-4559:4510-4559"  # Optional: additional service ports
+    environment:
+      # Core LocalStack configuration
+      - DEBUG=1
+      - SERVICES=s3,iam
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      
+      # S3 specific configuration
+      - S3_SKIP_SIGNATURE_VALIDATION=1
+      - S3_FORCE_PATH_STYLE=1
+      
+      # Performance and reliability settings
+      - LOCALSTACK_HOST=localhost
+      - EDGE_PORT=4566
+      - PERSISTENCE=0  # Don't persist data between runs for clean tests
+      
+      # Logging configuration
+      - LOG_LEVEL=INFO
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "./scripts/localstack-init:/etc/localstack/init/ready.d"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - zio-opendal-test
+
+  # ZIO OpenDAL test runner with LocalStack connectivity
+  zio-opendal-it:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    depends_on:
+      localstack:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - sbt-cache:/root/.sbt
+      - ivy-cache:/root/.ivy2
+      - coursier-cache:/root/.cache/coursier
+    working_dir: /app
+    environment:
+      # Java and SBT configuration
+      - JAVA_OPTS=--enable-native-access=ALL-UNNAMED -Djna.nosys=true
+      - SBT_OPTS=-Xmx3G -Xms1G
+      
+      # Integration test configuration
+      - ENABLE_INTEGRATION_TESTS=true
+      
+      # LocalStack AWS configuration
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_ENDPOINT_URL=http://localstack:4566
+      
+      # OpenDAL S3 configuration for LocalStack
+      - OPENDAL_S3_ENDPOINT=http://localstack:4566
+      - OPENDAL_S3_REGION=us-east-1
+      - OPENDAL_S3_ACCESS_KEY_ID=test
+      - OPENDAL_S3_SECRET_ACCESS_KEY=test
+      - OPENDAL_S3_BUCKET=zio-opendal-test-bucket
+      
+      # Force path-style requests for LocalStack compatibility
+      - AWS_S3_FORCE_PATH_STYLE=true
+    command: tail -f /dev/null  # Keep container running
+    networks:
+      - zio-opendal-test
+
+  # Optional: AWS CLI container for debugging LocalStack state
+  aws-cli:
+    image: amazon/aws-cli:2.22.17
+    platform: linux/amd64
+    depends_on:
+      localstack:
+        condition: service_healthy
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://localstack:4566
+    volumes:
+      - ./scripts/aws-debug:/scripts
+    command: tail -f /dev/null
+    networks:
+      - zio-opendal-test
+    profiles:
+      - debug  # Only start with --profile debug
+
+volumes:
+  sbt-cache:
+  ivy-cache:
+  coursier-cache:
+
+networks:
+  zio-opendal-test:
+    driver: bridge

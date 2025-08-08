@@ -1,0 +1,13 @@
+-Xmx4G
+-Xms1G
+-XX:+UseG1GC
+-XX:G1HeapRegionSize=16m
+-XX:+UseStringDeduplication
+-XX:+OptimizeStringConcat
+-XX:+UseCompressedOops
+-XX:ReservedCodeCacheSize=256m
+-XX:+TieredCompilation
+-XX:TieredStopAtLevel=1
+-Djline.terminal=jline.UnsupportedTerminal
+-Dsbt.log.noformat=true
+-Dfile.encoding=UTF-8

@@ -1,0 +1,25 @@
+# SBT and build artifacts
+target/
+project/target/
+project/project/
+
+# Cache directories
+.bsp/
+.metals/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# IDE files
+*.swp
+*.swo
+*~
+
+# Logs
+*.log

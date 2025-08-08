@@ -1,0 +1,21 @@
+services:
+  zio-opendal-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64  # Force AMD64 platform even on Apple Silicon
+    volumes:
+      - .:/app
+      - sbt-cache:/root/.sbt
+      - ivy-cache:/root/.ivy2
+      - coursier-cache:/root/.cache/coursier
+    working_dir: /app
+    environment:
+      - JAVA_OPTS=--enable-native-access=ALL-UNNAMED -Djna.nosys=true
+      - SBT_OPTS=-Xmx3G -Xms1G
+    command: tail -f /dev/null  # Keep container running
+
+volumes:
+  sbt-cache:
+  ivy-cache:
+  coursier-cache:
